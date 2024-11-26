@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "src/upload-images-to-icp-asset-backend-backend"
+]
+resolver = "2"

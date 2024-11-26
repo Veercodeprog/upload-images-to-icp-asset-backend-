@@ -1,0 +1,27 @@
+{
+  "canisters": {
+    "upload-images-to-icp-asset-backend-backend": {
+      "candid": "src/upload-images-to-icp-asset-backend-backend/upload-images-to-icp-asset-backend-backend.did",
+      "package": "upload-images-to-icp-asset-backend-backend",
+      "type": "rust"
+    },
+    "upload-images-to-icp-asset-backend-frontend": {
+      "dependencies": [
+        "upload-images-to-icp-asset-backend-backend"
+      ],
+      "source": [
+        "src/upload-images-to-icp-asset-backend-frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "upload-images-to-icp-asset-backend-frontend"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
