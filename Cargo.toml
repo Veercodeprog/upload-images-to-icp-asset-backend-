@@ -1,5 +1,4 @@
 [workspace]
-members = [
-    "src/upload-images-to-icp-asset-backend-backend"
-]
+members = [ "src/asset_proxy",
+ "src/provision"]
 resolver = "2"

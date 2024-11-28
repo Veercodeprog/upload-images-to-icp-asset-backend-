@@ -1,21 +1,19 @@
 {
   "canisters": {
-    "upload-images-to-icp-asset-backend-backend": {
-      "candid": "src/upload-images-to-icp-asset-backend-backend/upload-images-to-icp-asset-backend-backend.did",
-      "package": "upload-images-to-icp-asset-backend-backend",
-      "type": "rust"
+    "provision": {
+      "type": "rust",
+      "package": "provision",
+      "wasm": "target/wasm32-unknown-unknown/release/provision.wasm",
+      "candid": "src/provision/provision.did"
     },
-    "upload-images-to-icp-asset-backend-frontend": {
-      "dependencies": [
-        "upload-images-to-icp-asset-backend-backend"
-      ],
-      "source": [
-        "src/upload-images-to-icp-asset-backend-frontend/dist"
-      ],
-      "type": "assets",
-      "workspace": "upload-images-to-icp-asset-backend-frontend"
+    "asset_proxy": {
+      "type": "rust",
+      "package": "asset_proxy",
+      "wasm": "target/wasm32-unknown-unknown/release/asset_proxy.wasm",
+      "candid": "src/asset_proxy/asset_proxy.did"
     }
   },
+
   "defaults": {
     "build": {
       "args": "",

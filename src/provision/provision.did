@@ -1,0 +1,34 @@
+type Asset = record {
+  id : text;
+  encodings : vec record { text; AssetEncoding };
+  owner : principal;
+  content_type : text;
+  headers : opt vec record { text; text };
+  is_aliased : opt bool;
+  allow_raw_access : opt bool;
+  max_age : opt nat64;
+};
+type AssetEncoding = record {
+  modified : nat64;
+  sha256 : blob;
+  certified : bool;
+  content_chunks : vec blob;
+  total_length : nat64;
+};
+type CarCollection = record {
+  id : nat64;
+  model : text;
+  documents : vec text;
+  owner : principal;
+  logo : text;
+  name : text;
+  approved : bool;
+  images : vec text;
+};
+type Result = variant { Ok; Err : text };
+service : () -> {
+  add_asset : (Asset) -> (Result);
+  add_car_collection : (CarCollection) -> (Result);
+  get_asset : (text) -> (opt Asset) query;
+  get_car_collection : (nat64) -> (opt CarCollection) query;
+}
