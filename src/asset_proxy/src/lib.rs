@@ -37,14 +37,22 @@ fn post_upgrade() {
 }
 
 #[update]
-fn store(arg: StoreArg) {
+fn store(arg: StoreArg) -> String {
     STATE.with(|state| {
-        if let Err(msg) = state.borrow_mut().store(arg, time()) {
-            trap(&msg);
+        let mut state = state.borrow_mut();
+        if let Err(msg) = state.store(arg.clone(), ic_cdk::api::time()) {
+            ic_cdk::trap(&msg);
         }
+
         // Update certified data
-        set_certified_data(&get_root_hash());
-    });
+        let asset_hashes = state.asset_hashes.clone();
+        drop(state); // Release the mutable borrow
+
+        certification::update_certified_data(&asset_hashes);
+
+        // Generate and return the asset URL
+        format!("https://{}.icp0.io/{}", ic_cdk::id().to_text(), arg.key)
+    })
 }
 
 #[query]

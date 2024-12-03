@@ -1,12 +1,16 @@
 // src/state.rs
+use crate::certification::{create_asset_witness, verify_asset_integrity};
 use crate::certification::{on_asset_change, AssetHashes};
 use crate::rc_bytes::RcBytes;
 use crate::types::*;
 use crate::utils::url_decode;
+use base64::prelude::*;
 use ic_cdk::api::trap;
+
 use serde_bytes::ByteBuf;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+
 pub struct State {
     pub assets: HashMap<AssetKey, Asset>,
     pub asset_hashes: AssetHashes,
@@ -65,9 +69,18 @@ impl State {
         encoding.sha256 = hash;
 
         // Update asset certification
-        on_asset_change(&mut self.asset_hashes, &arg.key, asset);
+        let updated_asset_hashes =
+            on_asset_change(std::mem::take(&mut self.asset_hashes), &arg.key, asset);
+        self.asset_hashes = updated_asset_hashes;
 
         Ok(())
+    }
+
+    // Add this method to your State implementation
+    fn update_asset_certification(&mut self, key: &str, asset: &Asset) {
+        let updated_asset_hashes =
+            on_asset_change(std::mem::take(&mut self.asset_hashes), key, asset);
+        self.asset_hashes = updated_asset_hashes;
     }
 
     pub fn retrieve(&self, key: &AssetKey) -> Result<Vec<u8>, String> {
@@ -79,7 +92,13 @@ impl State {
             .encodings
             .get("identity")
             .ok_or_else(|| "No identity encoding".to_string())?;
-        Ok(encoding.content_chunks[0].as_ref().to_vec())
+        let content: Vec<u8> = encoding
+            .content_chunks
+            .iter()
+            .flat_map(|chunk| chunk.to_vec())
+            .collect();
+
+        Ok(content)
     }
 
     pub fn list_assets(&self) -> Vec<AssetKey> {
@@ -87,7 +106,6 @@ impl State {
     }
 
     pub fn handle_http_request(&self, req: HttpRequest, certificate: &[u8]) -> HttpResponse {
-        // Decode the requested path
         let path = match url_decode(&req.url) {
             Ok(decoded_path) => decoded_path,
             Err(err) => {
@@ -100,18 +118,59 @@ impl State {
             }
         };
 
-        // Serve the asset
-        self.build_http_response(&path, certificate)
-    }
+        let mut response = self.build_http_response(&path);
 
-    fn build_http_response(&self, path: &str, certificate: &[u8]) -> HttpResponse {
+        // Add certification data
+        let witness = create_asset_witness(&path);
+
+        response.headers.push((
+            "IC-Certificate".to_string(),
+            BASE64_STANDARD.encode(certificate),
+        ));
+        response.headers.push((
+            "IC-Certificate-Witness".to_string(),
+            BASE64_STANDARD.encode(&witness),
+        ));
+
+        response
+    }
+    fn build_http_response(&self, path: &str) -> HttpResponse {
         if let Some(asset) = self.assets.get(path) {
             // Get the encoding
             if let Some(encoding) = asset.encodings.get("identity") {
+                // Verify asset integrity
+                if !verify_asset_integrity(path, encoding.content_chunks[0].as_ref()) {
+                    return HttpResponse {
+                        status_code: 500,
+                        headers: vec![],
+                        body: ByteBuf::from("Asset integrity check failed"),
+                        streaming_strategy: None,
+                    };
+                }
+
+                // Create asset witness
+                let witness = create_asset_witness(path);
+
                 // Build the response
                 HttpResponse {
                     status_code: 200,
-                    headers: vec![("Content-Type".to_string(), asset.content_type.clone())],
+                    headers: vec![
+                        ("Content-Type".to_string(), asset.content_type.clone()),
+                        (
+                            "Content-Length".to_string(),
+                            encoding.total_length.to_string(),
+                        ),
+                        (
+                            "IC-Certificate-Witness".to_string(),
+                            BASE64_STANDARD.encode(&witness),
+                        ),
+                        (
+                            "Strict-Transport-Security".to_string(),
+                            "max-age=31536000; includeSubDomains".to_string(),
+                        ),
+                        ("X-Frame-Options".to_string(), "DENY".to_string()),
+                        ("X-Content-Type-Options".to_string(), "nosniff".to_string()),
+                    ],
                     body: encoding.content_chunks[0].as_ref().to_vec().into(),
                     streaming_strategy: None,
                 }

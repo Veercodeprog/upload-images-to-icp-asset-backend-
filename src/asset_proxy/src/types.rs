@@ -1,9 +1,12 @@
 // src/types.rs
 use crate::rc_bytes::RcBytes;
-use candid::{CandidType, Deserialize, Nat, Principal};
+use candid::{define_function, CandidType, Deserialize, Nat, Principal};
 use serde_bytes::ByteBuf;
 use std::collections::HashMap;
+
 pub type AssetKey = String;
+
+define_function!(pub StreamingCallback : (StreamingCallbackToken) -> (StreamingCallbackHttpResponse) query);
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct StoreArg {
@@ -67,7 +70,7 @@ pub struct StreamingCallbackHttpResponse {
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub enum StreamingStrategy {
     Callback {
-        callback: candid::Func,
+        callback: StreamingCallback,
         token: StreamingCallbackToken,
     },
 }
