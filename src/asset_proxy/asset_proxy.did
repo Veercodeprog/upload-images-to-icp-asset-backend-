@@ -1,76 +1,70 @@
 type AssetKey = text;
 
 type StoreArg = record {
-  key: AssetKey;
-  content_type: text;
-  content_encoding: text;
-  content: blob;
-  sha256: opt blob;
-  aliased: opt bool;
+  key : AssetKey;
+  content_type : text;
+  content_encoding : text;
+  content : blob;
+  sha256 : opt blob;
+  aliased : opt bool;
 };
 
-type RcBytes = blob; // RcBytes wraps ByteBuf, which is blob in Candid
+type RcBytes = blob;
 
 type AssetEncoding = record {
-  modified: nat64;
-  content_chunks: vec RcBytes;
-  total_length: nat64;
-  certified: bool;
-  sha256: vec nat8; // 32-byte array represented as vec nat8
+  modified : nat64;
+  content_chunks : vec RcBytes;
+  total_length : nat64;
+  certified : bool;
+  sha256 : vec nat8;
 };
 
 type Asset = record {
-  content_type: text;
-  encodings: vec record { key: text; val: AssetEncoding };
-  max_age: opt nat64;
-  headers: opt vec record { key: text; val: text };
-  is_aliased: opt bool;
-  allow_raw_access: opt bool;
+  content_type : text;
+  encodings : vec record { key : text; val : AssetEncoding };
+  max_age : opt nat64;
+  headers : opt vec record { key : text; val : text };
+  is_aliased : opt bool;
+  allow_raw_access : opt bool;
 };
 
 type HttpRequest = record {
-  method: text;
-  url: text;
-  headers: vec record { key: text; val: text };
-  body: blob;
+  method : text;
+  url : text;
+  headers : vec record { key : text; val : text };
+  body : blob;
 };
 
 type StreamingCallbackToken = record {
-  key: text;
-  content_encoding: text;
-  index: nat;
-  sha256: opt blob;
+  key : text;
+  content_encoding : text;
+  index : nat;
+  sha256 : opt blob;
 };
 
 type StreamingCallbackHttpResponse = record {
-  body: blob;
-  token: opt StreamingCallbackToken;
+  body : blob;
+  token : opt StreamingCallbackToken;
 };
 
 type StreamingStrategy = variant {
-  Callback: record {
-    callback: func (StreamingCallbackToken) -> (StreamingCallbackHttpResponse) query;
-    token: StreamingCallbackToken;
+  Callback : record {
+    callback : func (StreamingCallbackToken) -> (StreamingCallbackHttpResponse) query;
+    token : StreamingCallbackToken;
   };
 };
 
 type HttpResponse = record {
-  status_code: nat16;
-  headers: vec record { key: text; val: text };
-  body: blob;
-  streaming_strategy: opt StreamingStrategy;
+  status_code : nat16;
+  headers : vec record { key : text; val : text };
+  body : blob;
+  streaming_strategy : opt StreamingStrategy;
 };
 
-service : {
-  "store": (StoreArg) -> ();
-
-  "retrieve": (AssetKey) -> (vec nat8) query;
-
-  "list_assets": () -> (vec AssetKey) query;
-
-  "http_request": (HttpRequest) -> (HttpResponse) query;
-
-  "http_request_streaming_callback": (StreamingCallbackToken) -> (StreamingCallbackHttpResponse) query;
-
+service : (opt variant { Upgrade; Init }) -> {
+  store : (StoreArg) -> ();
+  retrieve : (AssetKey) -> (vec nat8) query;
+  list_assets : () -> (vec AssetKey) query;
+  http_request_streaming_callback : (StreamingCallbackToken) -> (StreamingCallbackHttpResponse) query;
 }
 
