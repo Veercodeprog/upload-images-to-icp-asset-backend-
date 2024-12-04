@@ -1,6 +1,8 @@
 // src/state.rs
 use crate::certification::{create_asset_witness, verify_asset_integrity};
 use crate::certification::{on_asset_change, AssetHashes};
+use crate::types::{Asset, AssetEncoding, HttpResponse, StreamingCallbackToken, StreamingStrategy};
+
 use crate::rc_bytes::RcBytes;
 use crate::types::*;
 use crate::utils::url_decode;
@@ -104,7 +106,6 @@ impl State {
     pub fn list_assets(&self) -> Vec<AssetKey> {
         self.assets.keys().cloned().collect()
     }
-
     pub fn handle_http_request(&self, req: HttpRequest, certificate: &[u8]) -> HttpResponse {
         let path = match url_decode(&req.url) {
             Ok(decoded_path) => decoded_path,
@@ -112,7 +113,8 @@ impl State {
                 return HttpResponse {
                     status_code: 400,
                     headers: vec![],
-                    body: ByteBuf::from(format!("Failed to decode path: {}", err)),
+                    body: RcBytes::from(ByteBuf::from(format!("Failed to decode path: {}", err))),
+                    upgrade: None,
                     streaming_strategy: None,
                 }
             }
@@ -120,20 +122,23 @@ impl State {
 
         let mut response = self.build_http_response(&path);
 
-        // Add certification data
+        // Generate witness
         let witness = create_asset_witness(&path);
 
-        response.headers.push((
-            "IC-Certificate".to_string(),
+        // Create IC-Certificate header
+        let ic_certificate_value = format!(
+            "certificate=:{}:, tree=:{}:",
             BASE64_STANDARD.encode(certificate),
-        ));
-        response.headers.push((
-            "IC-Certificate-Witness".to_string(),
-            BASE64_STANDARD.encode(&witness),
-        ));
+            BASE64_STANDARD.encode(&witness)
+        );
+
+        response
+            .headers
+            .push(("IC-Certificate".to_string(), ic_certificate_value));
 
         response
     }
+
     fn build_http_response(&self, path: &str) -> HttpResponse {
         if let Some(asset) = self.assets.get(path) {
             // Get the encoding
@@ -143,7 +148,8 @@ impl State {
                     return HttpResponse {
                         status_code: 500,
                         headers: vec![],
-                        body: ByteBuf::from("Asset integrity check failed"),
+                        body: RcBytes::from(ByteBuf::from("Asset integrity check failed")),
+                        upgrade: None,
                         streaming_strategy: None,
                     };
                 }
@@ -171,7 +177,8 @@ impl State {
                         ("X-Frame-Options".to_string(), "DENY".to_string()),
                         ("X-Content-Type-Options".to_string(), "nosniff".to_string()),
                     ],
-                    body: encoding.content_chunks[0].as_ref().to_vec().into(),
+                    body: encoding.content_chunks[0].clone(),
+                    upgrade: None,
                     streaming_strategy: None,
                 }
             } else {
@@ -179,7 +186,8 @@ impl State {
                 HttpResponse {
                     status_code: 404,
                     headers: vec![],
-                    body: ByteBuf::from("Asset encoding not found"),
+                    body: RcBytes::from(ByteBuf::from("Asset encoding not found")),
+                    upgrade: None,
                     streaming_strategy: None,
                 }
             }
@@ -188,12 +196,12 @@ impl State {
             HttpResponse {
                 status_code: 404,
                 headers: vec![],
-                body: ByteBuf::from("Asset not found"),
+                body: RcBytes::from(ByteBuf::from("Asset not found")),
+                upgrade: None,
                 streaming_strategy: None,
             }
         }
     }
-
     pub fn handle_streaming_callback(
         &self,
         token: StreamingCallbackToken,

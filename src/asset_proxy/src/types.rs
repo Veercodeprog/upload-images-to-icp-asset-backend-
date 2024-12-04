@@ -27,7 +27,25 @@ pub struct Asset {
     pub is_aliased: Option<bool>,
     pub allow_raw_access: Option<bool>,
 }
-
+impl Asset {
+    fn get_headers_for_asset(&self, enc_name: &str, cert_version: u16) -> HashMap<String, String> {
+        let mut headers = HashMap::new();
+        headers.insert("Content-Type".to_string(), self.content_type.clone());
+        if let Some(encoding) = self.encodings.get(enc_name) {
+            headers.insert(
+                "Content-Length".to_string(),
+                encoding.total_length.to_string(),
+            );
+        }
+        headers.insert(
+            "Strict-Transport-Security".to_string(),
+            "max-age=31536000; includeSubDomains".to_string(),
+        );
+        headers.insert("X-Frame-Options".to_string(), "DENY".to_string());
+        headers.insert("X-Content-Type-Options".to_string(), "nosniff".to_string());
+        headers
+    }
+}
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct AssetEncoding {
     pub modified: u64,
@@ -49,7 +67,9 @@ pub struct HttpRequest {
 pub struct HttpResponse {
     pub status_code: u16,
     pub headers: Vec<(String, String)>,
-    pub body: ByteBuf,
+    pub body: RcBytes,
+    pub upgrade: Option<bool>,
+
     pub streaming_strategy: Option<StreamingStrategy>,
 }
 
